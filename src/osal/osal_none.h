@@ -31,6 +31,12 @@
 extern "C" {
 #endif
 
+// Suppress IAR warning
+// Warning[Pe111]: statement isunreachable
+#if defined(__ICCARM__)
+#pragma diag_suppress = Pe111
+#endif
+
 //--------------------------------------------------------------------+
 // Spinlock API
 //--------------------------------------------------------------------+

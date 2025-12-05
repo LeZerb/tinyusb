@@ -151,6 +151,12 @@ typedef enum {
   TU_FIFO_FIXED_ADDR_RW32, // fixed address read/write by 4 bytes (word). Used for STM32 access into USB hardware FIFO
 } tu_fifo_access_mode_t;
 
+// Suppress IAR warning
+// Warning[Pa082]: undefined behavior: the order of volatile accesses is undefined in this statement
+#if defined(__ICCARM__)
+#pragma diag_suppress = Pa082
+#endif
+
 //--------------------------------------------------------------------+
 // Setup API
 //--------------------------------------------------------------------+
@@ -243,6 +249,10 @@ TU_ATTR_ALWAYS_INLINE static inline bool tu_fifo_full(const tu_fifo_t *f) {
 TU_ATTR_ALWAYS_INLINE static inline uint16_t tu_fifo_remaining(const tu_fifo_t *f) {
   return tu_ff_remaining_local(f->depth, f->wr_idx, f->rd_idx);
 }
+
+#if defined(__ICCARM__)
+#pragma diag_default = Pa082
+#endif
 
 #ifdef __cplusplus
 }

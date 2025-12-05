@@ -59,7 +59,7 @@ TU_ATTR_ALWAYS_INLINE static inline void ff_unlock(osal_mutex_t mutex) {
 //--------------------------------------------------------------------+
 // Setup API
 //--------------------------------------------------------------------+
-bool tu_fifo_config(tu_fifo_t *f, void *buffer, uint16_t depth, uint16_t item_size, bool overwritable) {
+bool tu_fifo_config(tu_fifo_t *f, void *buffer, uint16_t depth, uint8_t item_size, bool overwritable) {
   // Limit index space to 2*depth - this allows for a fast "modulo" calculation
   // but limits the maximum depth to 2^16/2 = 2^15 and buffer overflows are detectable
   // only if overflow happens once (important for unsupervised DMA applications)
@@ -72,7 +72,7 @@ bool tu_fifo_config(tu_fifo_t *f, void *buffer, uint16_t depth, uint16_t item_si
 
   f->buffer       = (uint8_t *)buffer;
   f->depth        = depth;
-  f->item_size    = (uint16_t)(item_size & 0x7FFFu);
+  f->item_size    = item_size;
   f->overwritable = overwritable;
   f->rd_idx       = 0u;
   f->wr_idx       = 0u;
@@ -292,7 +292,8 @@ static void ff_pull_n(const tu_fifo_t *f, void *app_buf, uint16_t n, uint16_t rd
 
 // Advance an absolute index
 // "absolute" index is only in the range of [0..2*depth)
-TU_ATTR_ALWAYS_INLINE static inline uint16_t advance_index(uint16_t depth, uint16_t idx, uint16_t offset) {
+static uint16_t advance_index(uint16_t depth, uint16_t idx, uint16_t offset);
+static uint16_t advance_index(uint16_t depth, uint16_t idx, uint16_t offset) {
   // We limit the index space of p such that a correct wrap around happens
   // Check for a wrap around or if we are in unused index space - This has to be checked first!!
   // We are exploiting the wrap around to the correct index
@@ -525,6 +526,11 @@ bool tu_fifo_write(tu_fifo_t *f, const void *data) {
   return ret;
 }
 
+// return number of items in fifo, capped to fifo's depth
+uint16_t tu_fifo_count(const tu_fifo_t *f) {
+  return tu_min16(tu_ff_overflow_count(f->depth, f->wr_idx, f->rd_idx), f->depth);
+}
+
 //--------------------------------------------------------------------+
 // Index API
 //--------------------------------------------------------------------+
@@ -683,4 +689,23 @@ void tu_fifo_get_write_info(tu_fifo_t *f, tu_fifo_buffer_info_t *info) {
     info->wrapped.len = remain - info->linear.len; // Remaining length - n already was limited to remain or FIFO depth
     info->wrapped.ptr = f->buffer;              // Always start of buffer
   }
+}
+
+//--------------------------------------------------------------------+
+// Internal Helper Local
+// work on local copies of read/write indices in order to only access them once for re-entrancy
+//--------------------------------------------------------------------+
+// return overflowable count (index difference), which can be used to determine both fifo count and an overflow state
+uint16_t tu_ff_overflow_count(uint16_t depth, uint16_t wr_idx, uint16_t rd_idx) {
+  if (wr_idx >= rd_idx) {
+    return (uint16_t)(wr_idx - rd_idx);
+  } else {
+    return (uint16_t)(2 * depth - (rd_idx - wr_idx));
+  }
+}
+
+// return remaining slot in fifo
+uint16_t tu_ff_remaining_local(uint16_t depth, uint16_t wr_idx, uint16_t rd_idx) {
+  const uint16_t ovf_count = tu_ff_overflow_count(depth, wr_idx, rd_idx);
+  return (depth > ovf_count) ? (depth - ovf_count) : 0;
 }

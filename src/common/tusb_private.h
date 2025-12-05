@@ -53,16 +53,14 @@ typedef struct TU_ATTR_PACKED {
 }tu_edpt_state_t;
 
 typedef struct {
-  struct TU_ATTR_PACKED  {
-    bool is_host   : 1; // 1: host, 0: device
-    bool is_mps512 : 1; // 1: 512, 0: 64 since stream is used for Bulk only
-  };
-  uint8_t ep_addr;
-  uint16_t ep_bufsize;
-
   uint8_t  *ep_buf; // set to NULL to use xfer_fifo when CFG_TUD_EDPT_DEDICATED_HWFIFO = 1
   tu_fifo_t ff;
 
+  uint16_t ep_bufsize;
+  uint8_t ep_addr;
+
+  bool is_host; // 1: host, 0: device
+  bool is_mps512; // 1: 512, 0: 64 since stream is used for Bulk only
   // mutex: read if rx, otherwise write
   OSAL_MUTEX_DEF(ff_mutexdef);
 
@@ -99,10 +97,7 @@ bool tu_edpt_stream_init(tu_edpt_stream_t* s, bool is_host, bool is_tx, bool ove
 bool tu_edpt_stream_deinit(tu_edpt_stream_t* s);
 
 // Open an endpoint stream
-TU_ATTR_ALWAYS_INLINE static inline void tu_edpt_stream_open(tu_edpt_stream_t* s, tusb_desc_endpoint_t const *desc_ep) {
-  s->ep_addr = desc_ep->bEndpointAddress;
-  s->is_mps512 = tu_edpt_packet_size(desc_ep) == 512;
-}
+void tu_edpt_stream_open(tu_edpt_stream_t* s, tusb_desc_endpoint_t const *desc_ep);
 
 TU_ATTR_ALWAYS_INLINE static inline bool tu_edpt_stream_is_opened(const tu_edpt_stream_t *s) {
   return s->ep_addr != 0;

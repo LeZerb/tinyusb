@@ -112,13 +112,11 @@ typedef struct {
   uint8_t *buffer;              // buffer pointer
   uint16_t depth;               // max items
 
-  struct TU_ATTR_PACKED {
-    uint16_t item_size    : 15; // size of each item
-    bool     overwritable : 1;  // ovwerwritable when full
-  };
-
   volatile uint16_t wr_idx;     // write index
   volatile uint16_t rd_idx;     // read index
+
+  uint8_t item_size; // size of each item
+  bool    overwritable;  // ovwerwritable when full
 
 #if OSAL_MUTEX_REQUIRED
   osal_mutex_t mutex_wr;
@@ -156,7 +154,7 @@ typedef enum {
 //--------------------------------------------------------------------+
 // Setup API
 //--------------------------------------------------------------------+
-bool tu_fifo_config(tu_fifo_t *f, void *buffer, uint16_t depth, uint16_t item_size, bool overwritable);
+bool tu_fifo_config(tu_fifo_t *f, void *buffer, uint16_t depth, uint8_t item_size, bool overwritable);
 bool tu_fifo_set_overwritable(tu_fifo_t *f, bool overwritable);
 bool tu_fifo_clear(tu_fifo_t *f);
 
@@ -219,25 +217,6 @@ TU_ATTR_ALWAYS_INLINE static inline uint16_t tu_fifo_write_n(tu_fifo_t *f, const
 }
 
 //--------------------------------------------------------------------+
-// Internal Helper Local
-// work on local copies of read/write indices in order to only access them once for re-entrancy
-//--------------------------------------------------------------------+
-// return overflowable count (index difference), which can be used to determine both fifo count and an overflow state
-TU_ATTR_ALWAYS_INLINE static inline uint16_t tu_ff_overflow_count(uint16_t depth, uint16_t wr_idx, uint16_t rd_idx) {
-  if (wr_idx >= rd_idx) {
-    return (uint16_t)(wr_idx - rd_idx);
-  } else {
-    return (uint16_t)(2 * depth - (rd_idx - wr_idx));
-  }
-}
-
-// return remaining slot in fifo
-TU_ATTR_ALWAYS_INLINE static inline uint16_t tu_ff_remaining_local(uint16_t depth, uint16_t wr_idx, uint16_t rd_idx) {
-  const uint16_t ovf_count = tu_ff_overflow_count(depth, wr_idx, rd_idx);
-  return (depth > ovf_count) ? (depth - ovf_count) : 0;
-}
-
-//--------------------------------------------------------------------+
 // State API
 // Following functions are reentrant since they only access read/write indices once, therefore can be used in thread and
 // ISRs context without the need of mutexes
@@ -247,15 +226,14 @@ TU_ATTR_ALWAYS_INLINE static inline uint16_t tu_fifo_depth(const tu_fifo_t *f) {
 }
 
 TU_ATTR_ALWAYS_INLINE static inline bool tu_fifo_empty(const tu_fifo_t *f) {
-  const uint16_t wr_idx = f->wr_idx;
-  const uint16_t rd_idx = f->rd_idx;
-  return wr_idx == rd_idx;
+  return f->wr_idx == f->rd_idx;
 }
 
 // return number of items in fifo, capped to fifo's depth
-TU_ATTR_ALWAYS_INLINE static inline uint16_t tu_fifo_count(const tu_fifo_t *f) {
-  return tu_min16(tu_ff_overflow_count(f->depth, f->wr_idx, f->rd_idx), f->depth);
-}
+uint16_t tu_fifo_count(const tu_fifo_t *f);
+
+uint16_t tu_ff_overflow_count(uint16_t depth, uint16_t wr_idx, uint16_t rd_idx);
+uint16_t tu_ff_remaining_local(uint16_t depth, uint16_t wr_idx, uint16_t rd_idx);
 
 // check if fifo is full
 TU_ATTR_ALWAYS_INLINE static inline bool tu_fifo_full(const tu_fifo_t *f) {

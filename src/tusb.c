@@ -334,6 +334,11 @@ uint16_t tu_desc_get_interface_total_len(tusb_desc_interface_t const* desc_itf, 
 // Endpoint Stream Helper for both Host and Device stack
 //--------------------------------------------------------------------+
 
+void tu_edpt_stream_open(tu_edpt_stream_t* s, tusb_desc_endpoint_t const *desc_ep) {
+  s->ep_addr = desc_ep->bEndpointAddress;
+  s->is_mps512 = tu_edpt_packet_size(desc_ep) == 512;
+}
+
 bool tu_edpt_stream_init(tu_edpt_stream_t* s, bool is_host, bool is_tx, bool overwritable,
                          void* ff_buf, uint16_t ff_bufsize, uint8_t* ep_buf, uint16_t ep_bufsize) {
   (void) is_tx;
@@ -380,7 +385,8 @@ TU_ATTR_ALWAYS_INLINE static inline bool stream_claim(uint8_t hwid, tu_edpt_stre
   return false;
 }
 
-TU_ATTR_ALWAYS_INLINE static inline bool stream_xfer(uint8_t hwid, tu_edpt_stream_t* s, uint16_t count) {
+static bool stream_xfer(uint8_t hwid, tu_edpt_stream_t* s, uint16_t count);
+static bool stream_xfer(uint8_t hwid, tu_edpt_stream_t* s, uint16_t count) {
   if (s->is_host) {
     #if CFG_TUH_ENABLED
     return usbh_edpt_xfer(hwid, s->ep_addr, count ? s->ep_buf : NULL, count);

@@ -91,6 +91,17 @@ bool tud_midi_n_mounted (uint8_t itf) {
   return tx_opened && rx_opened;
 }
 
+static uint8_t find_midi_itf(uint8_t ep_addr);
+static uint8_t find_midi_itf(uint8_t ep_addr) {
+  for (uint8_t idx = 0; idx < CFG_TUD_MIDI; idx++) {
+    const midid_interface_t *p_midi = &_midid_itf[idx];
+    if (ep_addr == p_midi->ep_stream.rx.ep_addr || ep_addr == p_midi->ep_stream.tx.ep_addr) {
+      return idx;
+    }
+  }
+  return TUSB_INDEX_INVALID_8;
+}
+
 //--------------------------------------------------------------------+
 // READ API
 //--------------------------------------------------------------------+
@@ -355,16 +366,6 @@ void midid_reset(uint8_t rhport) {
     tu_edpt_stream_clear(&p_midi->ep_stream.tx);
     tu_edpt_stream_close(&p_midi->ep_stream.tx);
   }
-}
-
-TU_ATTR_ALWAYS_INLINE static inline uint8_t find_midi_itf(uint8_t ep_addr) {
-  for (uint8_t idx = 0; idx < CFG_TUD_MIDI; idx++) {
-    const midid_interface_t *p_midi = &_midid_itf[idx];
-    if (ep_addr == p_midi->ep_stream.rx.ep_addr || ep_addr == p_midi->ep_stream.tx.ep_addr) {
-      return idx;
-    }
-  }
-  return TUSB_INDEX_INVALID_8;
 }
 
 uint16_t midid_open(uint8_t rhport, const tusb_desc_interface_t *desc_itf, uint16_t max_len) {
